@@ -44,22 +44,16 @@ with open(file,'rU') as open_file:
             # handle edge cases
             else:
                 # this means one corner needs to be temporarily shifted by 360 degrees to calculate the center
-                # print max(lon_extent) - min(lon_extent), row['HorizontalTile'], row['VerticalTile'], '\n', lon_extent
+                # signs stores the signs of the corners, adjust will be +1 or -1 depending upon how we need to flip the outlier
                 signs = [cmp(float(row[bound + 'Longitude']),0) for bound in bounds]
+                adjust = sum(signs) / 2
                 # store the odd man out as temp and recalculate the center
-                # else is handles the negative case
-                if (sum(signs) > 0):
-                    temp = float(row[[bound + 'Longitude' for bound in bounds if float(row[bound + 'Longitude']) < 0][0]]) + 360
-                    in_bounds = [bound for bound in bounds if float(row[bound + 'Longitude']) > 0]
-                    for bound in in_bounds:
-                        lon_temp += float(row[bound + 'Longitude'])
-                    row['sceneCenterLongitude'] = (lon_temp + temp) / len(bounds)
-                else:
-                    temp = float(row[[bound + 'Longitude' for bound in bounds if float(row[bound + 'Longitude']) > 0][0]]) - 360
-                    in_bounds = [bound for bound in bounds if float(row[bound + 'Longitude']) < 0]
-                    for bound in in_bounds:
-                        lon_temp += float(row[bound + 'Longitude'])
-                    row['sceneCenterLongitude'] = (lon_temp + temp) / len(bounds)
+                temp = float(row[[bound + 'Longitude' for bound in bounds if float(row[bound + 'Longitude']) * adjust < 0][0]]) + (360 * adjust)
+                in_bounds = [bound for bound in bounds if float(row[bound + 'Longitude']) * adjust > 0]
+                print temp, in_bounds
+                for bound in in_bounds:
+                    lon_temp += float(row[bound + 'Longitude'])
+                row['sceneCenterLongitude'] = (lon_temp + temp) / len(bounds)
 
             ## for QGIS
             if name_addition == '_qgis':
