@@ -50,7 +50,6 @@ with open(file,'rU') as open_file:
                 # store the odd man out as temp and recalculate the center
                 temp = float(row[[bound + 'Longitude' for bound in bounds if float(row[bound + 'Longitude']) * adjust < 0][0]]) + (360 * adjust)
                 in_bounds = [bound for bound in bounds if float(row[bound + 'Longitude']) * adjust > 0]
-                print temp, in_bounds
                 for bound in in_bounds:
                     lon_temp += float(row[bound + 'Longitude'])
                 row['sceneCenterLongitude'] = (lon_temp + temp) / len(bounds)
