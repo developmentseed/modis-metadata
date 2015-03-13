@@ -13,18 +13,28 @@ var readStream = fs.createReadStream(process.argv[2]);
 var stream = through(write)
 var header;
 var json;
+var obj;
 var i = 0;
 
 function write (data) {
-  if (!header) makeHeader(data.toString());
+  if (!header) {
+    makeHeader(data.toString());
+    //makeMapping(data.toString())
+  }
   if (data.toString().length > 0) {
-    json = _.zipObject(header, data.toString().split(','));
+    json = _.zipObject(header, formatData(data));
     upload(json)
   }
 }
 
 function makeHeader (data) {
-  header = data.split(',').map(function(heading){ return '"' + heading + '"'});
+  header = data.split(';')
+}
+
+function formatData (data) {
+  return data.toString().split(';').map(function(d){
+    return (isNaN(Number(d))) ? d : Number(d);
+  })
 }
 
 function upload (object) {

@@ -13,7 +13,6 @@ if len(sys.argv) > 1:
 if len(sys.argv) > 2:
     end_date = sys.argv[2]
 
-bounds = ['lowerLeftCorner','upperLeftCorner','upperRightCorner','lowerRightCorner']
 ### MODIS
 # 36 Horizontal Tiles, 18 Vertical (10x10 degrees at the equator)
 # 460 Total Scenes (not all combinations are possible)
@@ -36,32 +35,16 @@ while (str(process_date.year) + "-" + str(process_date.month) + "-" + str(proces
     for scene in scene_list:
         ## get a url
         print "Getting scene " + scene
-        r = requests.get("http://e4ftl01.cr.usgs.gov//MODIS_Dailies_A/MOLT/MOD09GA.005/" + date_formatted + "/" + scene)
-
-        ## make into a soup object
-        soup = BeautifulSoup(r.text, 'xml')
-
-        ## find the things we want and store them on our dict
-        # eventually we can just scrape this from the main page (except file size, range, day/night)
         one_file = {}
-        one_file['File Name'] = soup.find('DistributedFileName').text
-        one_file['File Size'] = soup.find('FileSize').text
-        one_file['Platform'] = soup.find('PlatformShortName').text
-        one_file['DayNightFlag'] = soup.find('DayNightFlag').text
-        one_file['RangeEndingTime'] = soup.find('RangeEndingTime').text
-        one_file['RangeEndingDate'] = soup.find('RangeEndingDate').text
-        one_file['RangeBeginningTime'] = soup.find('RangeBeginningTime').text
-        one_file['RangeBeginningDate'] = soup.find('RangeBeginningDate').text
-
-        one_file['HorizontalTile'] = soup.find("PSAName", text="HORIZONTALTILENUMBER").next_sibling.next_sibling.text
-        one_file['VerticalTile'] = soup.find("PSAName", text="VERTICALTILENUMBER").next_sibling.next_sibling.text
-        one_file['TileID'] = soup.find("PSAName", text="TileID").next_sibling.next_sibling.text
+        one_file['File Name'] = scene.replace('.xml','')
+        one_file['Date'] = process_date
+        one_file['Tile'] = scene.split('.')[2]
 
         metadata.append(one_file)
 
     keys = metadata[0].keys()
     date_format2 = str(process_date.year) + "-" + str(process_date.month) + "-" + str(process_date.day)
-    with open(date_format2 + '_modis.csv','wb') as output:
+    with open(date_format2 + '_modis_fast.csv','wb') as output:
         dict_writer = csv.DictWriter(output, keys)
         dict_writer.writeheader()
         dict_writer.writerows(metadata)

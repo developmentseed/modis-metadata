@@ -1,65 +1,50 @@
 ## Meant for processing MODIS metadata produced by scrape.py
+# GeoJSON bounds will be in lon/lat order, we'll switch for the API so it can be easily rendered in Leaflet
 
 import csv
 import sys
+import fiona
 
 file = sys.argv[1]
 
-delimiter = ','
+delimiter = ';'
 name_addition = '_process'
-if len(sys.argv) > 2:
-    if sys.argv[2] == 'qgis':
-        delimiter = ';'
-        name_addition = '_qgis'
 
-bounds = ['lowerLeftCorner','upperLeftCorner','upperRightCorner','lowerRightCorner']
+with fiona.drivers():
+    with open(file,'rU') as open_file:
+        with fiona.open('modisTiles.geojson') as modis:
+            with open(file.replace('.csv', '') + name_addition + '.csv','wb') as output:
 
-with open(file,'rU') as open_file:
-    with open(file.replace('.csv', '') + name_addition + '.csv','wb') as output:
-        reader = csv.DictReader(open_file)
-        to_write = []
-        for row in reader:
-            lat_temp = 0
-            lon_temp = 0
+                reader = csv.DictReader(open_file)
+                to_write = []
 
-            lon_extent = [float(row[bound + 'Longitude']) for bound in bounds]
+                ## make a dict from our modis tiles
+                # key is h00v00, value is coordinates array
+                modis_tiles = {}
+                for m in modis:
+                    h = str(int(m['properties']['h'])).zfill(2)
+                    v = str(int(m['properties']['v'])).zfill(2)
+                    modis_tiles['h' + h + 'v' + v] = m['geometry']['coordinates'][0][0]
 
-            ### Make a scene centroid.
-            ## latitude first
-            for bound in bounds:
-                lat_temp += float(row[bound + 'Latitude'])
+                print
+                for row in reader:
+                    lat_temp = 0
+                    lon_temp = 0
 
-            row['sceneCenterLatitude'] = lat_temp / len(bounds)
+                    ## find our tile
+                    tile = row['File Name'].split('.')[2]
+                    bounds = modis_tiles[tile]
+                    ### Make a scene centroid.
+                    for bound in bounds:
+                        lat_temp += bound[1]
+                        lon_temp += bound[0]
 
-            signs = [cmp(float(row[bound + 'Longitude']),0) for bound in bounds]
+                    row['sceneCenterLatitude'] = lat_temp / len(bounds)
+                    row['sceneCenterLongitude'] = lon_temp / len(bounds)
+                    row['boundsArray'] = '[' + ','.join('[' + str(bound[1]) + ',' + str(bound[0]) + ']' for bound in bounds) + ']'
+                    row['acquisitionDate'] = str(row['Date']).split(' ')[0]
+                    to_write.append(row)
 
-            ## next longitudes
-            # easy case first
-            if 300 > max(lon_extent) - min(lon_extent):
-
-                for bound in bounds:
-                    lon_temp += float(row[bound + 'Longitude'])
-                row['sceneCenterLongitude'] = lon_temp / len(bounds)
-
-            # handle edge cases
-            else:
-                # this means one corner needs to be temporarily shifted by 360 degrees to calculate the center
-                # signs stores the signs of the corners, adjust will be +1 or -1 depending upon how we need to flip the outlier
-                signs = [cmp(float(row[bound + 'Longitude']),0) for bound in bounds]
-                adjust = sum(signs) / 2
-                # store the odd man out as temp and recalculate the center
-                temp = float(row[[bound + 'Longitude' for bound in bounds if float(row[bound + 'Longitude']) * adjust < 0][0]]) + (360 * adjust)
-                in_bounds = [bound for bound in bounds if float(row[bound + 'Longitude']) * adjust > 0]
-                for bound in in_bounds:
-                    lon_temp += float(row[bound + 'Longitude'])
-                row['sceneCenterLongitude'] = (lon_temp + temp) / len(bounds)
-
-            ## for QGIS
-            if name_addition == '_qgis':
-                row['WKT'] = 'POLYGON((' + ', '.join([row[bound + 'Longitude'] + ' ' + row[bound + 'Latitude'] for bound in bounds]) + ', ' + row[bounds[0] + 'Longitude'] + ' ' + row[bounds[0] + 'Latitude'] + '))'
-
-            to_write.append(row)
-
-        writer = csv.DictWriter(output, to_write[0].keys(), delimiter=delimiter)
-        writer.writeheader()
-        writer.writerows(to_write)
+                writer = csv.DictWriter(output, to_write[0].keys(), delimiter=delimiter)
+                writer.writeheader()
+                writer.writerows(to_write)
